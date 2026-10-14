@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Underwriting — AI Recommendations Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#F5F6FA; --card:#FFFFFF; --border:#E4E7EC;
+    --text:#101828; --text-dim:#667085;
+    --indigo:#4F46E5; --green:#16A34A; --amber:#D97706; --red:#DC2626;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',Inter,system-ui,-apple-system,sans-serif;}
+  .wrap{max-width:1200px;margin:0 auto;padding:40px 28px 60px;}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;}
+  h1{font-size:24px;font-weight:600;margin:0;}
+  .sub{color:var(--text-dim);font-size:13px;margin-top:4px;}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:20px;box-shadow:0 1px 2px rgba(16,24,40,0.04);}
+  .kpi .label{color:var(--text-dim);font-size:12px;text-transform:uppercase;letter-spacing:0.4px;}
+  .kpi .num{font-size:28px;font-weight:700;margin-top:6px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+  @media (max-width:900px){.grid{grid-template-columns:1fr;} .kpis{grid-template-columns:1fr 1fr;}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:22px;box-shadow:0 1px 2px rgba(16,24,40,0.04);}
+  .card h3{margin:0 0 14px;font-size:14px;font-weight:600;color:var(--text);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{text-align:left;color:var(--text-dim);font-weight:600;font-size:11px;
+    text-transform:uppercase;letter-spacing:0.3px;padding:10px 12px;border-bottom:1px solid var(--border);}
+  tbody td{padding:12px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tbody tr:hover{background:#FAFBFF;}
+  .tbl-wrap{max-height:480px;overflow:auto;}
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge.low,.badge.approve{background:#DCFCE7;color:var(--green);}
+  .badge.medium,.badge.refer{background:#FEF3C7;color:var(--amber);}
+  .badge.high,.badge.decline,.badge.error{background:#FEE2E2;color:var(--red);}
+  .badge.na{background:#F2F4F7;color:var(--text-dim);}
+  .reasoning{max-width:360px;color:var(--text-dim);font-size:12.5px;line-height:1.5;}
+  canvas{max-height:230px;}
+  .generated{color:var(--text-dim);font-size:11px;margin-top:24px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Underwriting — AI Recommendations</h1>
+      <div class="sub">Auto-generated from Underwriting_Recommendations_Output.xlsx</div>
+    </div>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Applicants Processed</div><div class="num" id="k-total">0</div></div>
+    <div class="kpi"><div class="label">Approve</div><div class="num" id="k-approve">0</div></div>
+    <div class="kpi"><div class="label">Refer</div><div class="num" id="k-refer">0</div></div>
+    <div class="kpi"><div class="label">Decline</div><div class="num" id="k-decline">0</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Risk Category Split</h3>
+      <canvas id="chart-risk"></canvas>
+    </div>
+    <div class="card">
+      <h3>Recommended Action Split</h3>
+      <canvas id="chart-action"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Applicant-by-Applicant Results</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Applicant</th><th>Risk Category</th><th>Recommended Action</th><th>Reasoning</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="generated">Generated automatically after script run · 2026-07-06 13:53:39</div>
+</div>
+
+<script>
+const rows = [{"Applicant_ID": "APP-001", "Extracted_Profile": "{\"name\": \"Rohit Sharma\", \"age_estimate\": \"Not Available\", \"declared_monthly_income\": \"145000\", \"bmi\": \"23.4\", \"blood_pressure\": \"118/76\", \"existing_conditions\": \"No pre-existing conditions declared\", \"lifestyle_flags\": \"Not Available\", \"sum_assured_requested\": \"10000000\"}", "Risk_Category": "MEDIUM", "Recommended_Action": "REFER TO HUMAN UNDERWRITER", "Reasoning": "The applicant's declared monthly income is 145000, and the sum assured requested is 10000000, resulting in an income-to-sum-assured ratio that may not be reasonable. The applicant's BMI and blood pressure are within normal ranges, and no pre-existing conditions are declared. However, the lack of information on age and lifestyle flags is a concern. Given the significant amount of sum assured requested, it is prudent to refer this case to a human underwriter for further evaluation to assess the applicant's overall risk profile and ensure that the requested coverage is reasonable and not excessive. A human underwriter can review additional information and make a more informed decision."}, {"Applicant_ID": "APP-002", "Extracted_Profile": "{\"name\": \"Anita Deshmukh\", \"age_estimate\": \"48\", \"declared_monthly_income\": \"Not Available\", \"bmi\": \"31.2\", \"blood_pressure\": \"148/94\", \"existing_conditions\": \"Type 2 Diabetes\", \"lifestyle_flags\": \"smoker\", \"sum_assured_requested\": \"7500000\"}", "Risk_Category": "HIGH", "Recommended_Action": "REFER TO HUMAN UNDERWRITER", "Reasoning": "The applicant, Anita Deshmukh, presents several high-risk factors, including a high BMI of 31.2, elevated blood pressure of 148/94, and existing Type 2 Diabetes. Additionally, she is a smoker, which further increases her health risks. The sum assured requested is also relatively high at 7500000, but without income information, it is difficult to assess the reasonableness of this amount. Given the significant health risk factors present, it is prudent to refer this case to a human underwriter for a more detailed evaluation, rather than making an automated decision. This will allow for a more nuanced assessment of the applicant's overall risk profile and determination of an appropriate premium or potential decline."}, {"Applicant_ID": "APP-003", "Extracted_Profile": "{\"name\": \"Vikram Nair\", \"age_estimate\": 28, \"declared_monthly_income\": 80000, \"bmi\": 21.8, \"blood_pressure\": \"112/72\", \"existing_conditions\": \"No pre-existing conditions\", \"lifestyle_flags\": \"Not Available\", \"sum_assured_requested\": 5000000}", "Risk_Category": "LOW", "Recommended_Action": "APPROVE", "Reasoning": "The applicant, Vikram Nair, presents a low risk profile. With a declared monthly income of 80000 and a sum assured requested of 5000000, the income-to-sum-assured ratio is reasonable, indicating the applicant can afford the coverage. The applicant's BMI of 21.8 and blood pressure of 112/72 are within normal ranges, suggesting no significant health risks. Additionally, the absence of pre-existing conditions and no notable lifestyle flags further support a low risk assessment. Given these factors, the application can be approved without needing to refer to a human underwriter for review. Overall, the applicant's profile suggests a low risk of claim, making them a suitable candidate for term insurance approval."}, {"Applicant_ID": "APP-004", "Extracted_Profile": "{\"name\": \"Sunita Rao\", \"age_estimate\": \"Not Available\", \"declared_monthly_income\": 210000, \"bmi\": 27.9, \"blood_pressure\": \"136/88\", \"existing_conditions\": \"Hypertension\", \"lifestyle_flags\": \"Not Available\", \"sum_assured_requested\": 15000000}", "Risk_Category": "MEDIUM", "Recommended_Action": "REFER TO HUMAN UNDERWRITER", "Reasoning": "The applicant, Sunita Rao, has a declared monthly income of 210000 and has requested a sum assured of 15000000, which results in an income-to-sum-assured ratio that may be reasonable but warrants further review. The applicant's BMI of 27.9 is on the higher side, and the blood pressure reading of 136/88, combined with the existing condition of hypertension, suggests some health risks. Given these health factors and the significant sum assured requested, it is prudent to refer this case to a human underwriter for a more detailed evaluation rather than making an automated decision. This will allow for a more thorough assessment of the applicant's overall risk profile and lifestyle factors, which are currently not available."}, {"Applicant_ID": "APP-005", "Extracted_Profile": "{\"name\": \"Farhan Ali\", \"age_estimate\": 23, \"declared_monthly_income\": 62000, \"bmi\": 22.0, \"blood_pressure\": \"120/78\", \"existing_conditions\": \"No pre-existing conditions\", \"lifestyle_flags\": \"Not Available\", \"sum_assured_requested\": 4000000}", "Risk_Category": "MEDIUM", "Recommended_Action": "REFER TO HUMAN UNDERWRITER", "Reasoning": "The applicant, Farhan Ali, has a relatively low BMI and normal blood pressure, indicating no significant health risks. However, the declared monthly income of 62000 and the sum assured requested of 4000000 raise concerns about the reasonableness of the income-to-sum-assured ratio. The lack of lifestyle flags and existing conditions information also introduces uncertainty. Given the potential mismatch between income and sum assured, and the need for further evaluation of lifestyle risk factors, it is prudent to refer this case to a human underwriter for a more comprehensive assessment rather than making an automated decision. This will allow for a more detailed review of the applicant's financial situation and overall risk profile."}];
+
+function riskClass(v){
+  v=(v||'').toUpperCase();
+  if(v==='LOW') return 'low'; if(v==='MEDIUM') return 'medium';
+  if(v==='HIGH') return 'high'; if(v==='ERROR'||v==='UNPARSED') return 'error';
+  return 'na';
+}
+function actionClass(v){
+  v=(v||'').toUpperCase();
+  if(v.includes('APPROVE')) return 'approve';
+  if(v.includes('REFER')) return 'refer';
+  if(v.includes('DECLINE')) return 'decline';
+  return 'na';
+}
+
+const tbody = document.getElementById('tbody');
+const riskCounts = {LOW:0,MEDIUM:0,HIGH:0,OTHER:0};
+let approve=0, refer=0, decline=0;
+
+rows.forEach(r=>{
+  const risk = (r.Risk_Category||'').toUpperCase();
+  if(riskCounts[risk]!==undefined) riskCounts[risk]++; else if(risk) riskCounts.OTHER++;
+  const action = (r.Recommended_Action||'').toUpperCase();
+  if(action.includes('APPROVE')) approve++;
+  else if(action.includes('REFER')) refer++;
+  else if(action.includes('DECLINE')) decline++;
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><strong>${r.Applicant_ID||''}</strong></td>
+    <td><span class="badge ${riskClass(r.Risk_Category)}">${r.Risk_Category||'—'}</span></td>
+    <td><span class="badge ${actionClass(r.Recommended_Action)}">${r.Recommended_Action||'—'}</span></td>
+    <td class="reasoning">${r.Reasoning||''}</td>
+  `;
+  tbody.appendChild(tr);
+});
+
+document.getElementById('k-total').textContent = rows.length;
+document.getElementById('k-approve').textContent = approve;
+document.getElementById('k-refer').textContent = refer;
+document.getElementById('k-decline').textContent = decline;
+
+new Chart(document.getElementById('chart-risk'), {
+  type:'doughnut',
+  data:{labels:['Low','Medium','High','Other'],
+    datasets:[{data:[riskCounts.LOW,riskCounts.MEDIUM,riskCounts.HIGH,riskCounts.OTHER],
+      backgroundColor:['#16A34A','#D97706','#DC2626','#94A3B8']}]},
+  options:{plugins:{legend:{position:'bottom'}}}
+});
+
+new Chart(document.getElementById('chart-action'), {
+  type:'bar',
+  data:{labels:['Approve','Refer','Decline'],
+    datasets:[{data:[approve,refer,decline],backgroundColor:['#16A34A','#D97706','#DC2626'],borderRadius:6}]},
+  options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+});
+</script>
+</body>
+</html>
